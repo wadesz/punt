@@ -74,7 +74,7 @@
       padding:3px 8px; border-radius:999px; border:1px solid var(--line);
       font-size:12px; color:var(--muted);
     }
-    .right{justify-content:flex-end}
+    .right{text-align:right}
     .split{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap}
     .feed{display:flex; flex-direction:column; gap:8px}
     .feedItem{
@@ -94,6 +94,28 @@
     .loading{opacity:.8}
     .footer{margin-top:14px; color:var(--muted); font-size:12px}
     .scrollX{overflow:auto}
+
+    /* clickable names */
+    .linkBtn{
+      background:transparent; border:none; padding:0; margin:0;
+      color:var(--accent); cursor:pointer; font:inherit; text-decoration:underline;
+    }
+
+    /* modal */
+    .modalBg{
+      position:fixed; inset:0; background:rgba(0,0,0,.55);
+      display:none; align-items:center; justify-content:center; padding:18px; z-index:50;
+    }
+    .modal{
+      width:min(880px, 100%); max-height:85vh; overflow:auto;
+      background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow);
+      padding:14px;
+    }
+    .modalHeader{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap}
+    .modalTitle{display:flex; flex-direction:column; gap:4px}
+    .modalTitle h3{margin:0; font-size:18px}
+    canvas{width:100%; height:160px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.02)}
+    [data-theme="light"] canvas{background:#fafbff}
   </style>
 </head>
 <body>
@@ -105,13 +127,16 @@
     </div>
     <div class="toolbar">
       <span class="pill" id="lastUpdated">Last updated: —</span>
+
       <select id="sortBy">
         <option value="profit">Sort: Profit</option>
         <option value="roi">Sort: ROI</option>
         <option value="winrate">Sort: Win %</option>
         <option value="staked">Sort: Total Staked</option>
       </select>
+
       <select id="roundSelect"></select>
+
       <button id="themeBtn" title="Toggle dark/light">Toggle theme</button>
       <button id="refreshBtn" title="Reload data">Refresh</button>
     </div>
@@ -143,11 +168,26 @@
       <div class="footer" id="overviewNote">Profit excludes pending bets; bank balance includes them.</div>
     </div>
 
+    <div class="row grid3">
+      <div class="card">
+        <h2>Hall of Fame / Shame</h2>
+        <div class="small" id="hofBody">Loading…</div>
+      </div>
+      <div class="card">
+        <h2>Streaks</h2>
+        <div class="small" id="streakBody">Loading…</div>
+      </div>
+      <div class="card">
+        <h2>Selected Round Callouts</h2>
+        <div class="small" id="roundCallouts">Pick a round to see winner/wooden spoon.</div>
+      </div>
+    </div>
+
     <div class="row grid2">
       <div class="card">
         <div class="split">
           <h2 style="margin:0">Leaderboard</h2>
-          <div class="hint">Click Refresh if you’ve just updated the sheet.</div>
+          <div class="hint">Click a name for a nerdy profile.</div>
         </div>
         <div class="scrollX">
           <table>
@@ -195,6 +235,26 @@
     <div class="row grid2">
       <div class="card">
         <h2>Round View</h2>
+
+        <div class="toolbar" style="margin:8px 0 10px">
+          <select id="personFilter"></select>
+          <select id="typeFilter">
+            <option value="ALL">BetType: All</option>
+            <option value="Normal">Normal</option>
+            <option value="Future">Future</option>
+            <option value="Multi">Multi</option>
+            <option value="Promo">Promo</option>
+          </select>
+          <select id="resultFilter">
+            <option value="ALL">Result: All</option>
+            <option value="W">W</option>
+            <option value="L">L</option>
+            <option value="V">V</option>
+            <option value="P">P</option>
+          </select>
+          <input id="searchBox" placeholder="Search match/market/notes…" style="min-width:220px; flex:1" />
+        </div>
+
         <div class="hint" id="roundHint">Pick a round (top right) to see bets and results.</div>
         <div class="scrollX" style="margin-top:10px">
           <table>
@@ -247,6 +307,65 @@
   </div>
 </div>
 
+<!-- Profile Modal -->
+<div class="modalBg" id="modalBg">
+  <div class="modal">
+    <div class="modalHeader">
+      <div class="modalTitle">
+        <h3 id="profileTitle">Player</h3>
+        <div class="small" id="profileSub">—</div>
+      </div>
+      <div class="toolbar">
+        <button id="closeModal">Close</button>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi">
+        <div class="label">Profit</div>
+        <div class="value mono" id="pProfit">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">ROI</div>
+        <div class="value mono" id="pROI">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Win %</div>
+        <div class="value mono" id="pWin">—</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Bets</div>
+        <div class="value mono" id="pBets">—</div>
+      </div>
+    </div>
+
+    <div style="height:12px"></div>
+    <div class="small" style="margin-bottom:8px">Cumulative profit over time (settled bets only).</div>
+    <canvas id="profitChart" width="900" height="260"></canvas>
+
+    <div style="height:12px"></div>
+    <div class="scrollX">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Round</th>
+            <th>Match</th>
+            <th>Market</th>
+            <th class="right">Odds</th>
+            <th class="right">Stake</th>
+            <th class="right">Result</th>
+            <th class="right">Profit</th>
+          </tr>
+        </thead>
+        <tbody id="profileBetsBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
   // === Your published CSV links ===
   const CSV = {
@@ -256,7 +375,6 @@
     config: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=448769165&single=true&output=csv",
   };
 
-  // ===== Utilities =====
   const $ = (id) => document.getElementById(id);
 
   function setError(msg){
@@ -267,7 +385,6 @@
   }
 
   function parseCSV(text){
-    // Simple CSV parser with quoted fields support
     const rows = [];
     let i=0, field="", row=[], inQuotes=false;
     while(i < text.length){
@@ -281,7 +398,6 @@
         if(c === ','){ row.push(field); field=""; i++; continue; }
         if(c === '\n'){
           row.push(field); field="";
-          // Trim CR
           if(row.length===1 && row[0]===""){ row=[]; i++; continue; }
           rows.push(row.map(x => x.replace(/\r/g,"")));
           row=[]; i++; continue;
@@ -293,7 +409,6 @@
       row.push(field.replace(/\r/g,""));
       rows.push(row);
     }
-    // Convert to objects using header row
     const header = rows[0].map(h => (h||"").trim());
     const out = [];
     for(let r=1; r<rows.length; r++){
@@ -301,7 +416,6 @@
       for(let c=0; c<header.length; c++){
         obj[header[c]] = (rows[r][c] ?? "").trim();
       }
-      // Skip completely empty lines
       const anyVal = Object.values(obj).some(v => v !== "");
       if(anyVal) out.push(obj);
     }
@@ -319,7 +433,6 @@
   function fmtMoney(n, currency="AUD"){
     const sign = n < 0 ? "-" : "";
     const abs = Math.abs(n);
-    // AUD -> show $
     const prefix = (currency || "").toUpperCase() === "AUD" ? "$" : "";
     return sign + prefix + abs.toFixed(2);
   }
@@ -329,13 +442,23 @@
     return (n*100).toFixed(1) + "%";
   }
 
+  function escapeHtml(s){
+    return String(s ?? "").replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+    }[m]));
+  }
+
+  function normalizeDate(s){
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   function profitForBet(b){
-    // Profit = Return - Stake (Void profit 0)
     const stake = toNum(b.Stake);
     const ret = toNum(b.Return);
     const res = (b.Result||"").toUpperCase();
     if(res === "V") return 0;
-    if(res === "P") return 0; // pending profit unknown
+    if(res === "P") return 0;
     return ret - stake;
   }
 
@@ -344,13 +467,6 @@
     return res==="W" || res==="L" || res==="V";
   }
 
-  function normalizeDate(s){
-    // Best-effort; used only for sorting
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // ===== State =====
   let STATE = {
     config: {},
     members: [],
@@ -358,7 +474,8 @@
     contributions: [],
     currency: "AUD",
     startRound: 1,
-    endRound: 24
+    endRound: 24,
+    leaderboard: [],
   };
 
   async function fetchCSV(url){
@@ -390,6 +507,18 @@
       .filter(m => m.name);
   }
 
+  function applyConfig(){
+    const cfg = STATE.config;
+    const clubName = cfg.ClubName || "Punt Club";
+    const season = cfg.Season || "AFL Season";
+    STATE.currency = (cfg.Currency || "AUD").toUpperCase();
+    STATE.startRound = Number(cfg.StartRound || 1);
+    STATE.endRound = Number(cfg.EndRound || 24);
+
+    $("clubTitle").textContent = `${clubName} — ${season}`;
+    $("clubSub").textContent = `Members: ${STATE.members.length} · Currency: ${STATE.currency} · Rounds: ${STATE.startRound}-${STATE.endRound}`;
+  }
+
   function computeLeaderboard(){
     const names = STATE.members.map(m => m.name);
     const byName = new Map();
@@ -411,7 +540,7 @@
 
     for(const b of STATE.bets){
       const name = (b.Name||"").trim();
-      if(!byName.has(name)) continue; // ignore non-members
+      if(!byName.has(name)) continue;
       const row = byName.get(name);
       const stake = toNum(b.Stake);
       const ret = toNum(b.Return);
@@ -422,11 +551,9 @@
 
       if(res === "P"){
         row.pendingStake += stake;
-        // no returns yet
         continue;
       }
 
-      // settled
       row.settledStake += stake;
       row.returned += ret;
       row.profit += profitForBet(b);
@@ -461,12 +588,10 @@
   }
 
   function computeBank(){
-    // Contributions in
     let inTotal = 0;
     for(const c of STATE.contributions){
       inTotal += toNum(c.Amount);
     }
-    // Stakes out (include pending)
     let stakes = 0, returns = 0;
     for(const b of STATE.bets){
       stakes += toNum(b.Stake);
@@ -474,6 +599,20 @@
     }
     const balance = inTotal - stakes + returns;
     return {inTotal, stakes, returns, balance};
+  }
+
+  function computeLastUpdated(){
+    const dates = [];
+    for(const b of STATE.bets){
+      const d = normalizeDate(b.Date);
+      if(d) dates.push(d.getTime());
+    }
+    for(const c of STATE.contributions){
+      const d = normalizeDate(c.Date);
+      if(d) dates.push(d.getTime());
+    }
+    if(!dates.length) return null;
+    return new Date(Math.max(...dates));
   }
 
   function buildRoundOptions(){
@@ -491,41 +630,25 @@
       sel.appendChild(o);
     }
 
-    // Try to pick current-ish round if there are bets
     const roundsPresent = new Set(STATE.bets.map(b => Number(b.Round)).filter(x => Number.isFinite(x) && x>0));
     const maxR = roundsPresent.size ? Math.max(...roundsPresent) : null;
     if(maxR){ sel.value = String(maxR); }
   }
 
-  function renderLeaderboard(leader){
-    const sort = $("sortBy").value;
-    leader.sort((a,b) => {
-      if(sort==="roi") return b.roi - a.roi;
-      if(sort==="winrate") return b.winrate - a.winrate;
-      if(sort==="staked") return b.totalStake - a.totalStake;
-      return b.profit - a.profit;
-    });
+  function buildPersonFilter(){
+    const sel = $("personFilter");
+    sel.innerHTML = "";
+    const a = document.createElement("option");
+    a.value = "ALL";
+    a.textContent = "Person: All";
+    sel.appendChild(a);
 
-    const tbody = $("leaderBody");
-    tbody.innerHTML = "";
-    leader.forEach((r, idx) => {
-      const tr = document.createElement("tr");
-
-      const profitCls = r.profit > 0 ? "good" : (r.profit < 0 ? "bad" : "");
-      const roiCls = r.roi > 0 ? "good" : (r.roi < 0 ? "bad" : "");
-
-      tr.innerHTML = `
-        <td class="mono">${idx+1}</td>
-        <td><b>${escapeHtml(r.name)}</b></td>
-        <td class="right mono ${profitCls}">${fmtMoney(r.profit, STATE.currency)}</td>
-        <td class="right mono ${roiCls}">${fmtPct(r.roi)}</td>
-        <td class="right mono">${fmtPct(r.winrate)}</td>
-        <td class="right mono">${r.bets}</td>
-        <td class="right mono">${fmtMoney(r.totalStake, STATE.currency)}</td>
-        <td class="right mono">${fmtMoney(r.returned, STATE.currency)}</td>
-      `;
-      tbody.appendChild(tr);
-    });
+    for(const m of STATE.members){
+      const o = document.createElement("option");
+      o.value = m.name;
+      o.textContent = "Person: " + m.name;
+      sel.appendChild(o);
+    }
   }
 
   function renderOverview(totals){
@@ -545,14 +668,46 @@
     $("bankBal").className = "value mono " + (bank.balance>0 ? "good" : bank.balance<0 ? "bad" : "");
   }
 
+  function renderLeaderboard(leader){
+    const sort = $("sortBy").value;
+    leader.sort((a,b) => {
+      if(sort==="roi") return b.roi - a.roi;
+      if(sort==="winrate") return b.winrate - a.winrate;
+      if(sort==="staked") return b.totalStake - a.totalStake;
+      return b.profit - a.profit;
+    });
+
+    const tbody = $("leaderBody");
+    tbody.innerHTML = "";
+    leader.forEach((r, idx) => {
+      const tr = document.createElement("tr");
+      const profitCls = r.profit > 0 ? "good" : (r.profit < 0 ? "bad" : "");
+      const roiCls = r.roi > 0 ? "good" : (r.roi < 0 ? "bad" : "");
+
+      tr.innerHTML = `
+        <td class="mono">${idx+1}</td>
+        <td>
+          <button class="linkBtn" data-player="${escapeHtml(r.name)}">${escapeHtml(r.name)}</button>
+        </td>
+        <td class="right mono ${profitCls}">${fmtMoney(r.profit, STATE.currency)}</td>
+        <td class="right mono ${roiCls}">${fmtPct(r.roi)}</td>
+        <td class="right mono">${fmtPct(r.winrate)}</td>
+        <td class="right mono">${r.bets}</td>
+        <td class="right mono">${fmtMoney(r.totalStake, STATE.currency)}</td>
+        <td class="right mono">${fmtMoney(r.returned, STATE.currency)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("button[data-player]").forEach(btn => {
+      btn.addEventListener("click", () => openProfile(btn.getAttribute("data-player")));
+    });
+  }
+
   function renderFutures(){
     const futures = STATE.bets
       .filter(b => (b.Result||"").toUpperCase()==="P")
-      .sort((a,b) => {
-        const da = normalizeDate(a.Date)?.getTime() ?? 0;
-        const db = normalizeDate(b.Date)?.getTime() ?? 0;
-        return db - da;
-      });
+      .sort((a,b) => (normalizeDate(b.Date)?.getTime() ?? 0) - (normalizeDate(a.Date)?.getTime() ?? 0));
 
     const tb = $("futuresBody");
     tb.innerHTML = "";
@@ -582,33 +737,56 @@
     }
   }
 
+  function getFilters(){
+    return {
+      round: $("roundSelect").value,
+      person: $("personFilter").value,
+      betType: $("typeFilter").value,
+      result: $("resultFilter").value,
+      q: ($("searchBox").value || "").trim().toLowerCase(),
+    };
+  }
+
+  function filterBets(rows){
+    const f = getFilters();
+    return rows.filter(b => {
+      const r = (b.Result||"").toUpperCase();
+      const t = (b.BetType||"Normal").trim();
+      const name = (b.Name||"").trim();
+
+      if(f.round !== "ALL" && String(b.Round||"").trim() !== f.round) return false;
+      if(f.person !== "ALL" && name !== f.person) return false;
+      if(f.betType !== "ALL" && t !== f.betType) return false;
+      if(f.result !== "ALL" && r !== f.result) return false;
+
+      if(f.q){
+        const hay = `${b.Match||""} ${b.Market||""} ${b.Notes||""}`.toLowerCase();
+        if(!hay.includes(f.q)) return false;
+      }
+      return true;
+    });
+  }
+
   function renderRoundView(){
-    const sel = $("roundSelect").value;
+    const f = getFilters();
     let rows = STATE.bets.slice();
 
-    if(sel !== "ALL"){
-      rows = rows.filter(b => String(b.Round||"").trim() === sel);
-      $("roundHint").textContent = `Showing bets for Round ${sel}.`;
-    } else {
-      $("roundHint").textContent = `Showing bets for all rounds (excluding Round 0 futures unless you selected it in your data).`;
-    }
+    rows = filterBets(rows).sort((a,b) => (normalizeDate(b.Date)?.getTime() ?? 0) - (normalizeDate(a.Date)?.getTime() ?? 0));
 
-    rows = rows
-      .filter(b => (b.Result||"").trim() !== "") // ignore blank
-      .filter(b => sel === "ALL" ? true : true)
-      .sort((a,b) => {
-        const da = normalizeDate(a.Date)?.getTime() ?? 0;
-        const db = normalizeDate(b.Date)?.getTime() ?? 0;
-        return db - da;
-      });
+    if(f.round !== "ALL"){
+      $("roundHint").textContent = `Showing bets for Round ${f.round} (filters applied).`;
+    } else {
+      $("roundHint").textContent = `Showing bets for all rounds (filters applied).`;
+    }
 
     const tb = $("roundBody");
     tb.innerHTML = "";
 
     if(!rows.length){
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="8" class="small">No bets found for this round yet.</td>`;
+      tr.innerHTML = `<td colspan="8" class="small">No bets match these filters yet.</td>`;
       tb.appendChild(tr);
+      renderRoundCallouts(); // still update callouts
       return;
     }
 
@@ -628,27 +806,42 @@
         <td>${escapeHtml(b.Market||"")}</td>
         <td class="right mono">${odds ? odds.toFixed(2) : "—"}</td>
         <td class="right mono">${fmtMoney(stake, STATE.currency)}</td>
-        <td class="right mono ${resCls}">${escapeHtml(res)}</td>
+        <td class="right mono ${resCls}">${escapeHtml(res || "—")}</td>
         <td class="right mono ${pCls}">${res==="P" ? "—" : fmtMoney(p, STATE.currency)}</td>
       `;
       tb.appendChild(tr);
     }
+
+    renderRoundCallouts();
   }
 
   function renderRecent(){
+    // Recent respects filters EXCEPT round (so it stays "recent" even if you select a round)
+    const f = getFilters();
+    const temp = {...f, round:"ALL"};
     const rows = STATE.bets.slice()
-      .sort((a,b) => {
-        const da = normalizeDate(a.Date)?.getTime() ?? 0;
-        const db = normalizeDate(b.Date)?.getTime() ?? 0;
-        return db - da;
+      .filter(b => {
+        // apply person/type/result/search only
+        const r = (b.Result||"").toUpperCase();
+        const t = (b.BetType||"Normal").trim();
+        const name = (b.Name||"").trim();
+        if(temp.person !== "ALL" && name !== temp.person) return false;
+        if(temp.betType !== "ALL" && t !== temp.betType) return false;
+        if(temp.result !== "ALL" && r !== temp.result) return false;
+        if(temp.q){
+          const hay = `${b.Match||""} ${b.Market||""} ${b.Notes||""}`.toLowerCase();
+          if(!hay.includes(temp.q)) return false;
+        }
+        return true;
       })
+      .sort((a,b) => (normalizeDate(b.Date)?.getTime() ?? 0) - (normalizeDate(a.Date)?.getTime() ?? 0))
       .slice(0, 15);
 
     const feed = $("recentFeed");
     feed.innerHTML = "";
 
     if(!rows.length){
-      feed.innerHTML = `<div class="small">No bets logged yet. Add rows to the Bets tab and hit Refresh.</div>`;
+      feed.innerHTML = `<div class="small">No bets logged yet (or none match your filters).</div>`;
       return;
     }
 
@@ -661,62 +854,313 @@
       const pCls = res==="P" ? "warn" : (p>0 ? "good" : p<0 ? "bad" : "");
       const resCls = res==="W" ? "statusW" : res==="L" ? "statusL" : res==="P" ? "statusP" : "statusV";
 
-      const leftTop = `
-        <div class="feedTop">
-          <b>${escapeHtml(b.Name||"")}</b>
-          <span class="pill">${escapeHtml((b.BetType||"Normal") || "Normal")}</span>
-          <span class="pill">R${escapeHtml(String(b.Round||""))}</span>
-          <span class="pill ${resCls}">Result: ${escapeHtml(res||"—")}</span>
-        </div>
-      `;
-
       const matchLine = `${escapeHtml(b.Match||"")} ${b.Market ? "• "+escapeHtml(b.Market) : ""}`;
 
-      const tr = document.createElement("div");
-      tr.className = "feedItem";
-      tr.innerHTML = `
+      const div = document.createElement("div");
+      div.className = "feedItem";
+      div.innerHTML = `
         <div class="feedLeft">
-          ${leftTop}
+          <div class="feedTop">
+            <b>${escapeHtml(b.Name||"")}</b>
+            <span class="pill">${escapeHtml((b.BetType||"Normal") || "Normal")}</span>
+            <span class="pill">R${escapeHtml(String(b.Round||""))}</span>
+            <span class="pill ${resCls}">Result: ${escapeHtml(res||"—")}</span>
+          </div>
           <div class="small">${escapeHtml(b.Date||"")} — ${matchLine}</div>
           <div class="small">Odds <b class="mono">${odds ? odds.toFixed(2) : "—"}</b> · Stake <b class="mono">${fmtMoney(stake, STATE.currency)}</b>${b.Notes ? " · "+escapeHtml(b.Notes) : ""}</div>
         </div>
         <div class="mono ${pCls}" style="font-weight:800; white-space:nowrap">${pTxt}</div>
       `;
-      feed.appendChild(tr);
+      feed.appendChild(div);
     }
   }
 
-  function escapeHtml(s){
-    return String(s ?? "").replace(/[&<>"']/g, (m) => ({
-      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
-    }[m]));
+  function renderHallOfFame(){
+    const settled = STATE.bets.filter(b => isSettled((b.Result||"").toUpperCase()));
+    if(!settled.length){
+      $("hofBody").innerHTML = "No settled bets yet.";
+      return;
+    }
+
+    // biggest win / loss by profit per bet
+    let best = null, worst = null, highestOddsWin = null;
+    for(const b of settled){
+      const res = (b.Result||"").toUpperCase();
+      const p = profitForBet(b);
+      const odds = toNum(b.Odds);
+
+      if(best === null || p > best.p) best = {b, p};
+      if(worst === null || p < worst.p) worst = {b, p};
+
+      if(res === "W"){
+        if(highestOddsWin === null || odds > highestOddsWin.odds){
+          highestOddsWin = {b, odds, p};
+        }
+      }
+    }
+
+    const line = (label, item, extraClass="") => {
+      if(!item) return `<div>${label}: —</div>`;
+      const b = item.b;
+      return `
+        <div>
+          <b>${label}:</b>
+          <span class="${extraClass} mono">${label.includes("Loss") ? fmtMoney(item.p, STATE.currency) : fmtMoney(item.p, STATE.currency)}</span>
+          <span class="small">— ${escapeHtml(b.Name||"")} · ${escapeHtml(b.Match||"")} ${b.Market?("• "+escapeHtml(b.Market)):""} · odds ${toNum(b.Odds).toFixed(2)} · stake ${fmtMoney(toNum(b.Stake), STATE.currency)}</span>
+        </div>
+      `;
+    };
+
+    const bestCls = best?.p > 0 ? "good" : "";
+    const worstCls = worst?.p < 0 ? "bad" : "";
+    const highestLine = highestOddsWin ? `
+      <div>
+        <b>Highest Odds Win:</b>
+        <span class="mono good">${toNum(highestOddsWin.b.Odds).toFixed(2)}</span>
+        <span class="small">— ${escapeHtml(highestOddsWin.b.Name||"")} · ${escapeHtml(highestOddsWin.b.Match||"")} ${highestOddsWin.b.Market?("• "+escapeHtml(highestOddsWin.b.Market)):""} · profit ${fmtMoney(highestOddsWin.p, STATE.currency)}</span>
+      </div>
+    ` : `<div><b>Highest Odds Win:</b> —</div>`;
+
+    $("hofBody").innerHTML = `
+      ${line("Biggest Win", best, bestCls)}
+      ${line("Biggest Loss", worst, worstCls)}
+      ${highestLine}
+      <div class="small" style="margin-top:8px">Tip: Tag multis as <b>BetType=Multi</b> so your worst multi becomes obvious 😄</div>
+    `;
   }
 
-  function computeLastUpdated(){
-    // best effort: max date from bets or contributions
-    const dates = [];
-    for(const b of STATE.bets){
-      const d = normalizeDate(b.Date);
-      if(d) dates.push(d.getTime());
+  function computeStreaks(){
+    // per member: current streak and best win/loss streak (W/L only)
+    const out = [];
+    for(const m of STATE.members){
+      const bets = STATE.bets
+        .filter(b => (b.Name||"").trim() === m.name)
+        .filter(b => ["W","L"].includes((b.Result||"").toUpperCase()))
+        .sort((a,b) => (normalizeDate(a.Date)?.getTime() ?? 0) - (normalizeDate(b.Date)?.getTime() ?? 0));
+
+      let bestW=0, bestL=0;
+      let curType=null, curLen=0;
+      let tmpType=null, tmpLen=0;
+
+      for(const b of bets){
+        const r = (b.Result||"").toUpperCase();
+        if(tmpType === r){
+          tmpLen++;
+        } else {
+          tmpType = r;
+          tmpLen = 1;
+        }
+        if(tmpType==="W") bestW = Math.max(bestW, tmpLen);
+        if(tmpType==="L") bestL = Math.max(bestL, tmpLen);
+      }
+
+      if(bets.length){
+        // current streak = last run
+        const last = bets[bets.length-1];
+        curType = (last.Result||"").toUpperCase();
+        curLen = 1;
+        for(let i=bets.length-2; i>=0; i--){
+          const r = (bets[i].Result||"").toUpperCase();
+          if(r === curType) curLen++;
+          else break;
+        }
+      } else {
+        curType = null; curLen = 0;
+      }
+
+      out.push({name:m.name, curType, curLen, bestW, bestL});
     }
-    for(const c of STATE.contributions){
-      const d = normalizeDate(c.Date);
-      if(d) dates.push(d.getTime());
-    }
-    if(!dates.length) return null;
-    return new Date(Math.max(...dates));
+    return out;
   }
 
-  function applyConfig(){
-    const cfg = STATE.config;
-    const clubName = cfg.ClubName || "Punt Club";
-    const season = cfg.Season || "AFL Season";
-    STATE.currency = (cfg.Currency || "AUD").toUpperCase();
-    STATE.startRound = Number(cfg.StartRound || 1);
-    STATE.endRound = Number(cfg.EndRound || 24);
+  function renderStreaks(){
+    const s = computeStreaks();
+    if(!s.length){
+      $("streakBody").innerHTML = "No members yet.";
+      return;
+    }
 
-    $("clubTitle").textContent = `${clubName} — ${season}`;
-    $("clubSub").textContent = `Members: ${STATE.members.length} · Currency: ${STATE.currency} · Rounds: ${STATE.startRound}-${STATE.endRound}`;
+    // show top current hot and cold
+    const hot = s.filter(x => x.curType==="W").sort((a,b)=>b.curLen-a.curLen)[0];
+    const cold = s.filter(x => x.curType==="L").sort((a,b)=>b.curLen-a.curLen)[0];
+
+    const rows = s
+      .sort((a,b)=> (b.bestW - a.bestW) || (a.bestL - b.bestL))
+      .map(x => {
+        const cur = x.curType ? `${x.curType==="W" ? "🔥" : "🧊"} ${x.curType}×${x.curLen}` : "—";
+        return `<div><b>${escapeHtml(x.name)}:</b> current ${cur} · best 🔥 W×${x.bestW} · worst 🧊 L×${x.bestL}</div>`;
+      })
+      .join("");
+
+    $("streakBody").innerHTML = `
+      <div><b>Hottest right now:</b> ${hot ? `${escapeHtml(hot.name)} 🔥 W×${hot.curLen}` : "—"}</div>
+      <div><b>Coldest right now:</b> ${cold ? `${escapeHtml(cold.name)} 🧊 L×${cold.curLen}` : "—"}</div>
+      <div style="height:8px"></div>
+      ${rows}
+    `;
+  }
+
+  function renderRoundCallouts(){
+    const round = $("roundSelect").value;
+    if(round === "ALL"){
+      $("roundCallouts").innerHTML = "Select a specific round to see winner / wooden spoon.";
+      return;
+    }
+
+    const roundBets = STATE.bets
+      .filter(b => String(b.Round||"").trim() === round)
+      .filter(b => ["W","L","V"].includes((b.Result||"").toUpperCase())); // exclude pending
+
+    if(!roundBets.length){
+      $("roundCallouts").innerHTML = `No settled bets for Round ${escapeHtml(round)} yet.`;
+      return;
+    }
+
+    const by = new Map();
+    for(const m of STATE.members) by.set(m.name, 0);
+
+    for(const b of roundBets){
+      const name = (b.Name||"").trim();
+      if(!by.has(name)) continue;
+      by.set(name, by.get(name) + profitForBet(b));
+    }
+
+    const arr = Array.from(by.entries()).map(([name,profit])=>({name,profit}));
+    arr.sort((a,b)=>b.profit-a.profit);
+
+    const winner = arr[0];
+    const spoon = arr[arr.length-1];
+
+    const wCls = winner.profit>0 ? "good" : winner.profit<0 ? "bad" : "";
+    const sCls = spoon.profit<0 ? "bad" : spoon.profit>0 ? "good" : "";
+
+    $("roundCallouts").innerHTML = `
+      <div><b>Round ${escapeHtml(round)} Winner:</b> <span class="${wCls} mono">${escapeHtml(winner.name)} ${fmtMoney(winner.profit, STATE.currency)}</span></div>
+      <div><b>Wooden Spoon:</b> <span class="${sCls} mono">${escapeHtml(spoon.name)} ${fmtMoney(spoon.profit, STATE.currency)}</span></div>
+      <div class="small" style="margin-top:8px">Round totals use settled bets only (W/L/V). Pending futures don’t count.</div>
+    `;
+  }
+
+  function openProfile(name){
+    const row = STATE.leaderboard.find(x => x.name === name);
+    if(!row) return;
+
+    $("profileTitle").textContent = name + " — Profile";
+    $("profileSub").textContent = `Settled stake: ${fmtMoney(row.settledStake, STATE.currency)} · Pending stake: ${fmtMoney(row.pendingStake, STATE.currency)} · Returned: ${fmtMoney(row.returned, STATE.currency)}`;
+
+    $("pProfit").textContent = fmtMoney(row.profit, STATE.currency);
+    $("pProfit").className = "value mono " + (row.profit>0 ? "good" : row.profit<0 ? "bad" : "");
+    $("pROI").textContent = fmtPct(row.roi);
+    $("pROI").className = "value mono " + (row.roi>0 ? "good" : row.roi<0 ? "bad" : "");
+    $("pWin").textContent = fmtPct(row.winrate);
+    $("pBets").textContent = String(row.bets);
+
+    // bets table + chart data
+    const bets = STATE.bets
+      .filter(b => (b.Name||"").trim() === name)
+      .filter(b => ["W","L","V"].includes((b.Result||"").toUpperCase()))
+      .sort((a,b)=> (normalizeDate(a.Date)?.getTime() ?? 0) - (normalizeDate(b.Date)?.getTime() ?? 0));
+
+    const tb = $("profileBetsBody");
+    tb.innerHTML = "";
+    if(!bets.length){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="8" class="small">No settled bets yet.</td>`;
+      tb.appendChild(tr);
+    } else {
+      for(const b of bets.slice().reverse().slice(0, 50)){ // last 50
+        const res = (b.Result||"").toUpperCase();
+        const odds = toNum(b.Odds);
+        const stake = toNum(b.Stake);
+        const p = profitForBet(b);
+        const pCls = p>0 ? "good" : p<0 ? "bad" : "";
+        const resCls = res==="W" ? "statusW" : res==="L" ? "statusL" : "statusV";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="mono">${escapeHtml(b.Date||"")}</td>
+          <td class="mono">${escapeHtml(String(b.Round||""))}</td>
+          <td>${escapeHtml(b.Match||"")}</td>
+          <td>${escapeHtml(b.Market||"")}</td>
+          <td class="right mono">${odds ? odds.toFixed(2) : "—"}</td>
+          <td class="right mono">${fmtMoney(stake, STATE.currency)}</td>
+          <td class="right mono ${resCls}">${escapeHtml(res)}</td>
+          <td class="right mono ${pCls}">${fmtMoney(p, STATE.currency)}</td>
+        `;
+        tb.appendChild(tr);
+      }
+    }
+
+    drawProfitChart(bets);
+
+    $("modalBg").style.display = "flex";
+  }
+
+  function drawProfitChart(betsChrono){
+    const canvas = $("profitChart");
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+
+    // Clear
+    ctx.clearRect(0,0,w,h);
+
+    // data points: cumulative profit
+    let cum = 0;
+    const pts = betsChrono.map((b, i) => {
+      cum += profitForBet(b);
+      return {x:i, y:cum};
+    });
+
+    // If no data, draw placeholder
+    if(pts.length < 2){
+      ctx.font = "14px system-ui";
+      ctx.fillStyle = getComputedStyle(document.body).color;
+      ctx.globalAlpha = 0.7;
+      ctx.fillText("Not enough settled bets yet to chart.", 20, 40);
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    const ys = pts.map(p=>p.y);
+    const minY = Math.min(...ys, 0);
+    const maxY = Math.max(...ys, 0);
+    const pad = 30;
+
+    const xScale = (i) => pad + (i/(pts.length-1))*(w-2*pad);
+    const yScale = (v) => {
+      const span = (maxY - minY) || 1;
+      return (h-pad) - ((v - minY)/span)*(h-2*pad);
+    };
+
+    // axes
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue("--line");
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // y=0 line
+    const y0 = yScale(0);
+    ctx.moveTo(pad, y0);
+    ctx.lineTo(w-pad, y0);
+    ctx.stroke();
+
+    // line
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue("--accent");
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = xScale(p.x), y = yScale(p.y);
+      if(i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    // end label
+    const last = pts[pts.length-1];
+    const lastX = xScale(last.x), lastY = yScale(last.y);
+    ctx.fillStyle = getComputedStyle(document.body).color;
+    ctx.font = "12px system-ui";
+    ctx.globalAlpha = 0.9;
+    ctx.fillText(`Final: ${fmtMoney(last.y, STATE.currency)}`, Math.min(lastX+8, w-160), Math.max(lastY-8, 16));
+    ctx.globalAlpha = 1;
   }
 
   function initTheme(){
@@ -728,6 +1172,15 @@
     const next = cur === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("puntclub_theme", next);
+    // If modal chart open, redraw
+  }
+
+  function validateHeaders(betRows){
+    const required = ["Date","Round","Name","Match","Market","Odds","Stake","Result","Return","BetType","Notes"];
+    const missing = required.filter(c => !(c in (betRows[0] || {})));
+    if(missing.length){
+      setError(`Heads up: your <b>Bets</b> CSV is missing columns: <b>${missing.join(", ")}</b>. The site will still load, but some features may be wrong until headers match.`);
+    }
   }
 
   async function loadAll(){
@@ -746,24 +1199,25 @@
       STATE.contributions = contribRows;
       STATE.bets = betRows;
 
-      // Basic validation messaging
-      const requiredBetsCols = ["Date","Round","Name","Match","Market","Odds","Stake","Result","Return","BetType","Notes"];
-      const missing = requiredBetsCols.filter(c => !(c in (betRows[0] || {})));
-      if(missing.length){
-        setError(`Heads up: your <b>Bets</b> CSV is missing columns: <b>${missing.join(", ")}</b>. The site will still load, but stats may be wrong until headers match.`);
-      }
+      validateHeaders(betRows);
 
       applyConfig();
       buildRoundOptions();
+      buildPersonFilter();
 
-      const leader = computeLeaderboard();
-      const totals = computeClubTotals(leader);
+      STATE.leaderboard = computeLeaderboard();
+
+      const totals = computeClubTotals(STATE.leaderboard);
       const bank = computeBank();
 
       renderOverview(totals);
-      renderLeaderboard(leader);
+      renderLeaderboard(STATE.leaderboard);
       renderBank(bank);
       renderFutures();
+
+      renderHallOfFame();
+      renderStreaks();
+
       renderRoundView();
       renderRecent();
 
@@ -779,13 +1233,18 @@
   }
 
   // Events
-  $("themeBtn").addEventListener("click", toggleTheme);
+  $("themeBtn").addEventListener("click", () => { toggleTheme(); renderRecent(); renderRoundView(); });
   $("refreshBtn").addEventListener("click", loadAll);
-  $("sortBy").addEventListener("change", () => {
-    const leader = computeLeaderboard();
-    renderLeaderboard(leader);
-  });
-  $("roundSelect").addEventListener("change", renderRoundView);
+  $("sortBy").addEventListener("change", () => renderLeaderboard(STATE.leaderboard.slice()));
+  $("roundSelect").addEventListener("change", () => { renderRoundView(); });
+  $("personFilter").addEventListener("change", () => { renderRoundView(); renderRecent(); });
+  $("typeFilter").addEventListener("change", () => { renderRoundView(); renderRecent(); });
+  $("resultFilter").addEventListener("change", () => { renderRoundView(); renderRecent(); });
+  $("searchBox").addEventListener("input", () => { renderRoundView(); renderRecent(); });
+
+  // modal close
+  $("closeModal").addEventListener("click", () => $("modalBg").style.display = "none");
+  $("modalBg").addEventListener("click", (e) => { if(e.target === $("modalBg")) $("modalBg").style.display = "none"; });
 
   // Boot
   initTheme();
@@ -793,3 +1252,4 @@
 </script>
 </body>
 </html>
+
