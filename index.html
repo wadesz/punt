@@ -277,7 +277,7 @@
 
       <div class="card">
         <h2>Open Futures</h2>
-        <div class="hint">Bets with Result = <b>P</b> (pending). Round can be 0 for futures.</div>
+        <div class="hint">Open Futures</div>
         <div class="scrollX" style="margin-top:10px">
           <table>
             <thead>
@@ -302,9 +302,7 @@
     </div>
   </div>
 
-  <div class="footer">
-    Tip: In <b>Bets</b>, use Result = <b>W</b>, <b>L</b>, <b>V</b>, <b>P</b>. Futures should be <b>BetType=Future</b> and usually <b>Round=0</b>.
-  </div>
+  <div class="footer"></div>
 </div>
 
 <!-- Profile Modal -->
@@ -706,7 +704,7 @@
 
   function renderFutures(){
     const futures = STATE.bets
-      .filter(b => (b.Result||"").toUpperCase()==="P")
+      .filter(b => (b.BetType||"").trim()==="Future" && (b.Result||"").toUpperCase()==="P")
       .sort((a,b) => (normalizeDate(b.Date)?.getTime() ?? 0) - (normalizeDate(a.Date)?.getTime() ?? 0));
 
     const tb = $("futuresBody");
@@ -776,7 +774,7 @@
     if(f.round !== "ALL"){
       $("roundHint").textContent = `Showing bets for Round ${f.round} (filters applied).`;
     } else {
-      $("roundHint").textContent = `Showing bets for all rounds (filters applied).`;
+      $("roundHint").textContent = ``;
     }
 
     const tb = $("roundBody");
