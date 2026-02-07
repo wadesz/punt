@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Punt Club Dashboard</title>
+  <style>
+    :root{
+      --bg:#0b0d12; --card:#121725; --muted:#9aa3b2; --text:#e9eef7; --line:#263049;
+      --good:#37d67a; --bad:#ff5c5c; --warn:#f7c948;
+      --accent:#7aa2ff;
+      --shadow: 0 10px 30px rgba(0,0,0,.25);
+      --radius: 16px;
+    }
+    [data-theme="light"]{
+      --bg:#f6f7fb; --card:#ffffff; --muted:#5a6475; --text:#0f172a; --line:#e5e7ef;
+      --shadow: 0 8px 20px rgba(2,6,23,.08);
+      --accent:#335dff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:var(--bg); color:var(--text);
+    }
+    a{color:var(--accent)}
+    .wrap{max-width:1100px; margin:0 auto; padding:20px}
+    header{
+      display:flex; gap:12px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+      margin-bottom:16px;
+    }
+    .title{display:flex; flex-direction:column; gap:6px}
+    h1{margin:0; font-size:22px; letter-spacing:.2px}
+    .sub{color:var(--muted); font-size:13px}
+    .row{display:grid; gap:12px}
+    .grid2{grid-template-columns: 1.2fr .8fr}
+    .grid3{grid-template-columns: repeat(3, 1fr)}
+    @media (max-width: 900px){
+      .grid2, .grid3{grid-template-columns:1fr}
+    }
+    .card{
+      background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+      box-shadow:var(--shadow); padding:14px;
+    }
+    .card h2{margin:0 0 10px; font-size:16px}
+    .kpis{display:grid; grid-template-columns: repeat(4, 1fr); gap:10px}
+    @media (max-width: 900px){ .kpis{grid-template-columns: repeat(2, 1fr)} }
+    .kpi{
+      border:1px solid var(--line); border-radius:14px; padding:10px; background:rgba(255,255,255,.02)
+    }
+    [data-theme="light"] .kpi{background:#fafbff}
+    .kpi .label{color:var(--muted); font-size:12px}
+    .kpi .value{font-size:18px; margin-top:4px; font-weight:700}
+    .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+    .toolbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    button, select, input{
+      background:transparent; color:var(--text);
+      border:1px solid var(--line); border-radius:12px;
+      padding:9px 10px; font-size:13px;
+    }
+    button{cursor:pointer}
+    button:hover{border-color:var(--accent)}
+    .hint{color:var(--muted); font-size:12px}
+    table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:14px; border:1px solid var(--line)}
+    thead th{
+      text-align:left; font-size:12px; color:var(--muted); background:rgba(255,255,255,.02);
+      padding:10px; border-bottom:1px solid var(--line); position:sticky; top:0;
+    }
+    [data-theme="light"] thead th{background:#f5f7ff}
+    tbody td{padding:10px; border-bottom:1px solid var(--line); font-size:13px}
+    tbody tr:last-child td{border-bottom:none}
+    .mono{font-variant-numeric: tabular-nums; font-feature-settings:"tnum" 1;}
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:3px 8px; border-radius:999px; border:1px solid var(--line);
+      font-size:12px; color:var(--muted);
+    }
+    .right{justify-content:flex-end}
+    .split{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap}
+    .feed{display:flex; flex-direction:column; gap:8px}
+    .feedItem{
+      display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+      padding:10px; border:1px solid var(--line); border-radius:14px;
+      background:rgba(255,255,255,.02);
+    }
+    [data-theme="light"] .feedItem{background:#fafbff}
+    .feedLeft{display:flex; flex-direction:column; gap:3px}
+    .feedTop{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .small{font-size:12px; color:var(--muted)}
+    .statusW{color:var(--good); font-weight:700}
+    .statusL{color:var(--bad); font-weight:700}
+    .statusP{color:var(--warn); font-weight:700}
+    .statusV{color:var(--muted); font-weight:700}
+    .err{padding:12px; border-radius:14px; border:1px solid rgba(255,92,92,.4); background: rgba(255,92,92,.08)}
+    .loading{opacity:.8}
+    .footer{margin-top:14px; color:var(--muted); font-size:12px}
+    .scrollX{overflow:auto}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1 id="clubTitle">Punt Club Dashboard</h1>
+      <div class="sub" id="clubSub">Loading…</div>
+    </div>
+    <div class="toolbar">
+      <span class="pill" id="lastUpdated">Last updated: —</span>
+      <select id="sortBy">
+        <option value="profit">Sort: Profit</option>
+        <option value="roi">Sort: ROI</option>
+        <option value="winrate">Sort: Win %</option>
+        <option value="staked">Sort: Total Staked</option>
+      </select>
+      <select id="roundSelect"></select>
+      <button id="themeBtn" title="Toggle dark/light">Toggle theme</button>
+      <button id="refreshBtn" title="Reload data">Refresh</button>
+    </div>
+  </header>
+
+  <div id="errorBox" class="err" style="display:none"></div>
+
+  <div class="row">
+    <div class="card">
+      <h2>Season Overview</h2>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">Club Profit</div>
+          <div class="value mono" id="kpiProfit">—</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Club ROI</div>
+          <div class="value mono" id="kpiROI">—</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Total Staked</div>
+          <div class="value mono" id="kpiStaked">—</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Open (Pending) Stake</div>
+          <div class="value mono" id="kpiPending">—</div>
+        </div>
+      </div>
+      <div class="footer" id="overviewNote">Profit excludes pending bets; bank balance includes them.</div>
+    </div>
+
+    <div class="row grid2">
+      <div class="card">
+        <div class="split">
+          <h2 style="margin:0">Leaderboard</h2>
+          <div class="hint">Click Refresh if you’ve just updated the sheet.</div>
+        </div>
+        <div class="scrollX">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Name</th>
+                <th class="right">Profit</th>
+                <th class="right">ROI</th>
+                <th class="right">Win %</th>
+                <th class="right">Bets</th>
+                <th class="right">Staked</th>
+                <th class="right">Returned</th>
+              </tr>
+            </thead>
+            <tbody id="leaderBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Club Bank</h2>
+        <div class="kpis" style="grid-template-columns:1fr 1fr; gap:10px">
+          <div class="kpi">
+            <div class="label">Contributions In</div>
+            <div class="value mono" id="bankIn">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Stakes Out</div>
+            <div class="value mono" id="bankOut">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Returns In</div>
+            <div class="value mono" id="bankReturns">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Current Balance</div>
+            <div class="value mono" id="bankBal">—</div>
+          </div>
+        </div>
+        <div class="footer">Balance = Contributions − Stakes + Returns (includes pending stakes).</div>
+      </div>
+    </div>
+
+    <div class="row grid2">
+      <div class="card">
+        <h2>Round View</h2>
+        <div class="hint" id="roundHint">Pick a round (top right) to see bets and results.</div>
+        <div class="scrollX" style="margin-top:10px">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Match</th>
+                <th>Market</th>
+                <th class="right">Odds</th>
+                <th class="right">Stake</th>
+                <th class="right">Result</th>
+                <th class="right">Profit</th>
+              </tr>
+            </thead>
+            <tbody id="roundBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Open Futures</h2>
+        <div class="hint">Bets with Result = <b>P</b> (pending). Round can be 0 for futures.</div>
+        <div class="scrollX" style="margin-top:10px">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Match/Market</th>
+                <th class="right">Odds</th>
+                <th class="right">Stake</th>
+                <th class="right">Potential Profit</th>
+              </tr>
+            </thead>
+            <tbody id="futuresBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent Bets</h2>
+      <div class="feed" id="recentFeed"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Tip: In <b>Bets</b>, use Result = <b>W</b>, <b>L</b>, <b>V</b>, <b>P</b>. Futures should be <b>BetType=Future</b> and usually <b>Round=0</b>.
+  </div>
+</div>
+
+<script>
+  // === Your published CSV links ===
+  const CSV = {
+    members: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=0&single=true&output=csv",
+    contributions: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=1440517173&single=true&output=csv",
+    bets: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=711038859&single=true&output=csv",
+    config: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=448769165&single=true&output=csv",
+  };
+
+  // ===== Utilities =====
+  const $ = (id) => document.getElementById(id);
+
+  function setError(msg){
+    const box = $("errorBox");
+    if(!msg){ box.style.display="none"; box.textContent=""; return; }
+    box.style.display="block";
+    box.innerHTML = msg;
+  }
+
+  function parseCSV(text){
+    // Simple CSV parser with quoted fields support
+    const rows = [];
+    let i=0, field="", row=[], inQuotes=false;
+    while(i < text.length){
+      const c = text[i];
+      if(inQuotes){
+        if(c === '"' && text[i+1] === '"'){ field+='"'; i+=2; continue; }
+        if(c === '"'){ inQuotes=false; i++; continue; }
+        field+=c; i++; continue;
+      } else {
+        if(c === '"'){ inQuotes=true; i++; continue; }
+        if(c === ','){ row.push(field); field=""; i++; continue; }
+        if(c === '\n'){
+          row.push(field); field="";
+          // Trim CR
+          if(row.length===1 && row[0]===""){ row=[]; i++; continue; }
+          rows.push(row.map(x => x.replace(/\r/g,"")));
+          row=[]; i++; continue;
+        }
+        field+=c; i++; continue;
+      }
+    }
+    if(field.length || row.length){
+      row.push(field.replace(/\r/g,""));
+      rows.push(row);
+    }
+    // Convert to objects using header row
+    const header = rows[0].map(h => (h||"").trim());
+    const out = [];
+    for(let r=1; r<rows.length; r++){
+      const obj = {};
+      for(let c=0; c<header.length; c++){
+        obj[header[c]] = (rows[r][c] ?? "").trim();
+      }
+      // Skip completely empty lines
+      const anyVal = Object.values(obj).some(v => v !== "");
+      if(anyVal) out.push(obj);
+    }
+    return out;
+  }
+
+  function toNum(x){
+    if(x===null || x===undefined) return 0;
+    const s = String(x).replace(/[$, ]/g,"").trim();
+    if(!s) return 0;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function fmtMoney(n, currency="AUD"){
+    const sign = n < 0 ? "-" : "";
+    const abs = Math.abs(n);
+    // AUD -> show $
+    const prefix = (currency || "").toUpperCase() === "AUD" ? "$" : "";
+    return sign + prefix + abs.toFixed(2);
+  }
+
+  function fmtPct(n){
+    if(!Number.isFinite(n)) return "—";
+    return (n*100).toFixed(1) + "%";
+  }
+
+  function profitForBet(b){
+    // Profit = Return - Stake (Void profit 0)
+    const stake = toNum(b.Stake);
+    const ret = toNum(b.Return);
+    const res = (b.Result||"").toUpperCase();
+    if(res === "V") return 0;
+    if(res === "P") return 0; // pending profit unknown
+    return ret - stake;
+  }
+
+  function isSettled(res){
+    res = (res||"").toUpperCase();
+    return res==="W" || res==="L" || res==="V";
+  }
+
+  function normalizeDate(s){
+    // Best-effort; used only for sorting
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // ===== State =====
+  let STATE = {
+    config: {},
+    members: [],
+    bets: [],
+    contributions: [],
+    currency: "AUD",
+    startRound: 1,
+    endRound: 24
+  };
+
+  async function fetchCSV(url){
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error(`Failed to fetch: ${url}`);
+    const t = await r.text();
+    return parseCSV(t);
+  }
+
+  function readConfig(rows){
+    const cfg = {};
+    for(const r of rows){
+      const k = (r.Key||"").trim();
+      const v = (r.Value||"").trim();
+      if(k) cfg[k] = v;
+    }
+    return cfg;
+  }
+
+  function activeMembers(members){
+    return members
+      .filter(m => String(m.Active||"").toUpperCase() !== "FALSE")
+      .map(m => ({
+        name: (m.Name||"").trim(),
+        nickname: (m.Nickname||"").trim(),
+        joinDate: (m.JoinDate||"").trim(),
+        active: String(m.Active||"TRUE").toUpperCase() !== "FALSE"
+      }))
+      .filter(m => m.name);
+  }
+
+  function computeLeaderboard(){
+    const names = STATE.members.map(m => m.name);
+    const byName = new Map();
+    for(const n of names){
+      byName.set(n, {
+        name: n,
+        profit: 0,
+        settledStake: 0,
+        totalStake: 0,
+        returned: 0,
+        wins: 0,
+        losses: 0,
+        voids: 0,
+        pendingStake: 0,
+        bets: 0,
+        settledBets: 0
+      });
+    }
+
+    for(const b of STATE.bets){
+      const name = (b.Name||"").trim();
+      if(!byName.has(name)) continue; // ignore non-members
+      const row = byName.get(name);
+      const stake = toNum(b.Stake);
+      const ret = toNum(b.Return);
+      const res = (b.Result||"").toUpperCase();
+
+      row.bets += 1;
+      row.totalStake += stake;
+
+      if(res === "P"){
+        row.pendingStake += stake;
+        // no returns yet
+        continue;
+      }
+
+      // settled
+      row.settledStake += stake;
+      row.returned += ret;
+      row.profit += profitForBet(b);
+      row.settledBets += 1;
+
+      if(res === "W") row.wins += 1;
+      else if(res === "L") row.losses += 1;
+      else if(res === "V") row.voids += 1;
+    }
+
+    const arr = Array.from(byName.values());
+    for(const r of arr){
+      const denom = r.settledStake;
+      r.roi = denom > 0 ? (r.profit / denom) : 0;
+      const wrDenom = r.wins + r.losses;
+      r.winrate = wrDenom > 0 ? (r.wins / wrDenom) : 0;
+    }
+    return arr;
+  }
+
+  function computeClubTotals(leader){
+    let clubProfit=0, clubSettledStake=0, clubTotalStake=0, clubReturned=0, clubPending=0;
+    for(const r of leader){
+      clubProfit += r.profit;
+      clubSettledStake += r.settledStake;
+      clubTotalStake += r.totalStake;
+      clubReturned += r.returned;
+      clubPending += r.pendingStake;
+    }
+    const clubROI = clubSettledStake > 0 ? (clubProfit/clubSettledStake) : 0;
+    return {clubProfit, clubROI, clubSettledStake, clubTotalStake, clubReturned, clubPending};
+  }
+
+  function computeBank(){
+    // Contributions in
+    let inTotal = 0;
+    for(const c of STATE.contributions){
+      inTotal += toNum(c.Amount);
+    }
+    // Stakes out (include pending)
+    let stakes = 0, returns = 0;
+    for(const b of STATE.bets){
+      stakes += toNum(b.Stake);
+      returns += toNum(b.Return);
+    }
+    const balance = inTotal - stakes + returns;
+    return {inTotal, stakes, returns, balance};
+  }
+
+  function buildRoundOptions(){
+    const sel = $("roundSelect");
+    sel.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "ALL";
+    optAll.textContent = "Round: All";
+    sel.appendChild(optAll);
+
+    for(let r = STATE.startRound; r <= STATE.endRound; r++){
+      const o = document.createElement("option");
+      o.value = String(r);
+      o.textContent = "Round: " + r;
+      sel.appendChild(o);
+    }
+
+    // Try to pick current-ish round if there are bets
+    const roundsPresent = new Set(STATE.bets.map(b => Number(b.Round)).filter(x => Number.isFinite(x) && x>0));
+    const maxR = roundsPresent.size ? Math.max(...roundsPresent) : null;
+    if(maxR){ sel.value = String(maxR); }
+  }
+
+  function renderLeaderboard(leader){
+    const sort = $("sortBy").value;
+    leader.sort((a,b) => {
+      if(sort==="roi") return b.roi - a.roi;
+      if(sort==="winrate") return b.winrate - a.winrate;
+      if(sort==="staked") return b.totalStake - a.totalStake;
+      return b.profit - a.profit;
+    });
+
+    const tbody = $("leaderBody");
+    tbody.innerHTML = "";
+    leader.forEach((r, idx) => {
+      const tr = document.createElement("tr");
+
+      const profitCls = r.profit > 0 ? "good" : (r.profit < 0 ? "bad" : "");
+      const roiCls = r.roi > 0 ? "good" : (r.roi < 0 ? "bad" : "");
+
+      tr.innerHTML = `
+        <td class="mono">${idx+1}</td>
+        <td><b>${escapeHtml(r.name)}</b></td>
+        <td class="right mono ${profitCls}">${fmtMoney(r.profit, STATE.currency)}</td>
+        <td class="right mono ${roiCls}">${fmtPct(r.roi)}</td>
+        <td class="right mono">${fmtPct(r.winrate)}</td>
+        <td class="right mono">${r.bets}</td>
+        <td class="right mono">${fmtMoney(r.totalStake, STATE.currency)}</td>
+        <td class="right mono">${fmtMoney(r.returned, STATE.currency)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderOverview(totals){
+    $("kpiProfit").textContent = fmtMoney(totals.clubProfit, STATE.currency);
+    $("kpiProfit").className = "value mono " + (totals.clubProfit>0 ? "good" : totals.clubProfit<0 ? "bad" : "");
+    $("kpiROI").textContent = fmtPct(totals.clubROI);
+    $("kpiROI").className = "value mono " + (totals.clubROI>0 ? "good" : totals.clubROI<0 ? "bad" : "");
+    $("kpiStaked").textContent = fmtMoney(totals.clubTotalStake, STATE.currency);
+    $("kpiPending").textContent = fmtMoney(totals.clubPending, STATE.currency);
+  }
+
+  function renderBank(bank){
+    $("bankIn").textContent = fmtMoney(bank.inTotal, STATE.currency);
+    $("bankOut").textContent = fmtMoney(bank.stakes, STATE.currency);
+    $("bankReturns").textContent = fmtMoney(bank.returns, STATE.currency);
+    $("bankBal").textContent = fmtMoney(bank.balance, STATE.currency);
+    $("bankBal").className = "value mono " + (bank.balance>0 ? "good" : bank.balance<0 ? "bad" : "");
+  }
+
+  function renderFutures(){
+    const futures = STATE.bets
+      .filter(b => (b.Result||"").toUpperCase()==="P")
+      .sort((a,b) => {
+        const da = normalizeDate(a.Date)?.getTime() ?? 0;
+        const db = normalizeDate(b.Date)?.getTime() ?? 0;
+        return db - da;
+      });
+
+    const tb = $("futuresBody");
+    tb.innerHTML = "";
+
+    if(!futures.length){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="6" class="small">No open futures yet.</td>`;
+      tb.appendChild(tr);
+      return;
+    }
+
+    for(const b of futures){
+      const stake = toNum(b.Stake);
+      const odds = toNum(b.Odds);
+      const potentialProfit = (odds>0 ? (stake*odds - stake) : 0);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="mono">${escapeHtml(b.Date||"")}</td>
+        <td><b>${escapeHtml(b.Name||"")}</b></td>
+        <td>${escapeHtml((b.Match||"") + (b.Market?(" • "+b.Market):""))}</td>
+        <td class="right mono">${odds ? odds.toFixed(2) : "—"}</td>
+        <td class="right mono">${fmtMoney(stake, STATE.currency)}</td>
+        <td class="right mono good">${fmtMoney(potentialProfit, STATE.currency)}</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  function renderRoundView(){
+    const sel = $("roundSelect").value;
+    let rows = STATE.bets.slice();
+
+    if(sel !== "ALL"){
+      rows = rows.filter(b => String(b.Round||"").trim() === sel);
+      $("roundHint").textContent = `Showing bets for Round ${sel}.`;
+    } else {
+      $("roundHint").textContent = `Showing bets for all rounds (excluding Round 0 futures unless you selected it in your data).`;
+    }
+
+    rows = rows
+      .filter(b => (b.Result||"").trim() !== "") // ignore blank
+      .filter(b => sel === "ALL" ? true : true)
+      .sort((a,b) => {
+        const da = normalizeDate(a.Date)?.getTime() ?? 0;
+        const db = normalizeDate(b.Date)?.getTime() ?? 0;
+        return db - da;
+      });
+
+    const tb = $("roundBody");
+    tb.innerHTML = "";
+
+    if(!rows.length){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="8" class="small">No bets found for this round yet.</td>`;
+      tb.appendChild(tr);
+      return;
+    }
+
+    for(const b of rows){
+      const res = (b.Result||"").toUpperCase();
+      const stake = toNum(b.Stake);
+      const odds = toNum(b.Odds);
+      const p = profitForBet(b);
+      const pCls = p>0 ? "good" : p<0 ? "bad" : "";
+      const resCls = res==="W" ? "statusW" : res==="L" ? "statusL" : res==="P" ? "statusP" : "statusV";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="mono">${escapeHtml(b.Date||"")}</td>
+        <td><b>${escapeHtml(b.Name||"")}</b></td>
+        <td>${escapeHtml(b.Match||"")}</td>
+        <td>${escapeHtml(b.Market||"")}</td>
+        <td class="right mono">${odds ? odds.toFixed(2) : "—"}</td>
+        <td class="right mono">${fmtMoney(stake, STATE.currency)}</td>
+        <td class="right mono ${resCls}">${escapeHtml(res)}</td>
+        <td class="right mono ${pCls}">${res==="P" ? "—" : fmtMoney(p, STATE.currency)}</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  function renderRecent(){
+    const rows = STATE.bets.slice()
+      .sort((a,b) => {
+        const da = normalizeDate(a.Date)?.getTime() ?? 0;
+        const db = normalizeDate(b.Date)?.getTime() ?? 0;
+        return db - da;
+      })
+      .slice(0, 15);
+
+    const feed = $("recentFeed");
+    feed.innerHTML = "";
+
+    if(!rows.length){
+      feed.innerHTML = `<div class="small">No bets logged yet. Add rows to the Bets tab and hit Refresh.</div>`;
+      return;
+    }
+
+    for(const b of rows){
+      const res = (b.Result||"").toUpperCase();
+      const stake = toNum(b.Stake);
+      const odds = toNum(b.Odds);
+      const p = profitForBet(b);
+      const pTxt = res==="P" ? "Pending" : (p>=0 ? `+${fmtMoney(p, STATE.currency)}` : `-${fmtMoney(Math.abs(p), STATE.currency)}`);
+      const pCls = res==="P" ? "warn" : (p>0 ? "good" : p<0 ? "bad" : "");
+      const resCls = res==="W" ? "statusW" : res==="L" ? "statusL" : res==="P" ? "statusP" : "statusV";
+
+      const leftTop = `
+        <div class="feedTop">
+          <b>${escapeHtml(b.Name||"")}</b>
+          <span class="pill">${escapeHtml((b.BetType||"Normal") || "Normal")}</span>
+          <span class="pill">R${escapeHtml(String(b.Round||""))}</span>
+          <span class="pill ${resCls}">Result: ${escapeHtml(res||"—")}</span>
+        </div>
+      `;
+
+      const matchLine = `${escapeHtml(b.Match||"")} ${b.Market ? "• "+escapeHtml(b.Market) : ""}`;
+
+      const tr = document.createElement("div");
+      tr.className = "feedItem";
+      tr.innerHTML = `
+        <div class="feedLeft">
+          ${leftTop}
+          <div class="small">${escapeHtml(b.Date||"")} — ${matchLine}</div>
+          <div class="small">Odds <b class="mono">${odds ? odds.toFixed(2) : "—"}</b> · Stake <b class="mono">${fmtMoney(stake, STATE.currency)}</b>${b.Notes ? " · "+escapeHtml(b.Notes) : ""}</div>
+        </div>
+        <div class="mono ${pCls}" style="font-weight:800; white-space:nowrap">${pTxt}</div>
+      `;
+      feed.appendChild(tr);
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s ?? "").replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+    }[m]));
+  }
+
+  function computeLastUpdated(){
+    // best effort: max date from bets or contributions
+    const dates = [];
+    for(const b of STATE.bets){
+      const d = normalizeDate(b.Date);
+      if(d) dates.push(d.getTime());
+    }
+    for(const c of STATE.contributions){
+      const d = normalizeDate(c.Date);
+      if(d) dates.push(d.getTime());
+    }
+    if(!dates.length) return null;
+    return new Date(Math.max(...dates));
+  }
+
+  function applyConfig(){
+    const cfg = STATE.config;
+    const clubName = cfg.ClubName || "Punt Club";
+    const season = cfg.Season || "AFL Season";
+    STATE.currency = (cfg.Currency || "AUD").toUpperCase();
+    STATE.startRound = Number(cfg.StartRound || 1);
+    STATE.endRound = Number(cfg.EndRound || 24);
+
+    $("clubTitle").textContent = `${clubName} — ${season}`;
+    $("clubSub").textContent = `Members: ${STATE.members.length} · Currency: ${STATE.currency} · Rounds: ${STATE.startRound}-${STATE.endRound}`;
+  }
+
+  function initTheme(){
+    const saved = localStorage.getItem("puntclub_theme");
+    if(saved) document.documentElement.setAttribute("data-theme", saved);
+  }
+  function toggleTheme(){
+    const cur = document.documentElement.getAttribute("data-theme") || "dark";
+    const next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("puntclub_theme", next);
+  }
+
+  async function loadAll(){
+    setError("");
+    document.body.classList.add("loading");
+    try{
+      const [cfgRows, memberRows, contribRows, betRows] = await Promise.all([
+        fetchCSV(CSV.config),
+        fetchCSV(CSV.members),
+        fetchCSV(CSV.contributions),
+        fetchCSV(CSV.bets),
+      ]);
+
+      STATE.config = readConfig(cfgRows);
+      STATE.members = activeMembers(memberRows);
+      STATE.contributions = contribRows;
+      STATE.bets = betRows;
+
+      // Basic validation messaging
+      const requiredBetsCols = ["Date","Round","Name","Match","Market","Odds","Stake","Result","Return","BetType","Notes"];
+      const missing = requiredBetsCols.filter(c => !(c in (betRows[0] || {})));
+      if(missing.length){
+        setError(`Heads up: your <b>Bets</b> CSV is missing columns: <b>${missing.join(", ")}</b>. The site will still load, but stats may be wrong until headers match.`);
+      }
+
+      applyConfig();
+      buildRoundOptions();
+
+      const leader = computeLeaderboard();
+      const totals = computeClubTotals(leader);
+      const bank = computeBank();
+
+      renderOverview(totals);
+      renderLeaderboard(leader);
+      renderBank(bank);
+      renderFutures();
+      renderRoundView();
+      renderRecent();
+
+      const lu = computeLastUpdated();
+      $("lastUpdated").textContent = "Last updated: " + (lu ? lu.toLocaleString() : "—");
+    } catch(e){
+      console.error(e);
+      setError(`Couldn’t load your sheet data. Common causes: the sheet isn’t published, the tab names changed, or “anyone with link” isn’t set to viewer.<br><br><b>Error:</b> ${escapeHtml(e.message)}`);
+      $("clubSub").textContent = "Fix sheet publishing or links, then hit Refresh.";
+    } finally {
+      document.body.classList.remove("loading");
+    }
+  }
+
+  // Events
+  $("themeBtn").addEventListener("click", toggleTheme);
+  $("refreshBtn").addEventListener("click", loadAll);
+  $("sortBy").addEventListener("change", () => {
+    const leader = computeLeaderboard();
+    renderLeaderboard(leader);
+  });
+  $("roundSelect").addEventListener("change", renderRoundView);
+
+  // Boot
+  initTheme();
+  loadAll();
+</script>
+</body>
+</html>
