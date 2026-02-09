@@ -12,6 +12,13 @@
       --shadow: 0 10px 30px rgba(0,0,0,.25);
       --radius: 16px;
     }
+    :root { color-scheme: dark; }
+    [data-theme="light"] { color-scheme: light; }
+    select, option {
+      background: var(--card);
+      color: var(--text);
+    }
+
     [data-theme="light"]{
       --bg:#f6f7fb; --card:#ffffff; --muted:#5a6475; --text:#0f172a; --line:#e5e7ef;
       --shadow: 0 8px 20px rgba(2,6,23,.08);
@@ -277,7 +284,6 @@
 
       <div class="card">
         <h2>Open Futures</h2>
-        <div class="hint">Open Futures</div>
         <div class="scrollX" style="margin-top:10px">
           <table>
             <thead>
@@ -507,7 +513,7 @@
 
   function applyConfig(){
     const cfg = STATE.config;
-    const clubName = cfg.ClubName || "Punt Club";
+    const clubName = cfg.ClubName || "Drop Punts";
     const season = cfg.Season || "AFL Season";
     STATE.currency = (cfg.Currency || "AUD").toUpperCase();
     STATE.startRound = Number(cfg.StartRound || 1);
@@ -1041,9 +1047,11 @@
 
   function openProfile(name){
     const row = STATE.leaderboard.find(x => x.name === name);
+    const mem = STATE.members.find(m => m.name === name);
+    const nick = mem?.nickname ? ` (${mem.nickname})` : "";
     if(!row) return;
 
-    $("profileTitle").textContent = name + " — Profile";
+    $("profileTitle").textContent = name + nick + " — Profile";
     $("profileSub").textContent = `Settled stake: ${fmtMoney(row.settledStake, STATE.currency)} · Pending stake: ${fmtMoney(row.pendingStake, STATE.currency)} · Returned: ${fmtMoney(row.returned, STATE.currency)}`;
 
     $("pProfit").textContent = fmtMoney(row.profit, STATE.currency);
