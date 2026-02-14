@@ -184,6 +184,10 @@
         <div class="small" id="streakBody">Loading…</div>
       </div>
       <div class="card">
+        <h2>Group Multi Tracker</h2>
+        <div class="small" id="groupMultiBody">Loading…</div>
+      </div>
+      <div class="card">
         <h2>Selected Round Callouts</h2>
         <div class="small" id="roundCallouts">Pick a round to see winner/wooden spoon.</div>
       </div>
@@ -375,7 +379,8 @@
     contributions: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=1440517173&single=true&output=csv",
     bets: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=711038859&single=true&output=csv",
     config: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=448769165&single=true&output=csv",
-  };
+    grouplegs: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOaANwkoUdpnE5JbIgqQpePAgswv04vyLNsCeWJhoTuwlZE6BZth7iexve2L_4RpR-q7rOFUHZcuwh/pub?gid=262930476&single=true&output=csv",
+    };
 
   const $ = (id) => document.getElementById(id);
 
@@ -478,6 +483,7 @@
     startRound: 1,
     endRound: 24,
     leaderboard: [],
+    groupLegs: [],
   };
 
   async function fetchCSV(url){
@@ -981,6 +987,65 @@
       $("streakBody").innerHTML = "No members yet.";
       return;
     }
+  function renderGroupMultiTracker(){
+    const el = document.getElementById("groupMultiBody");
+    if(!el) return;
+
+    const rows = (STATE.groupLegs || []).map(r => ({
+      WeekID: (r.WeekID || "").trim(),
+      Date: (r.Date || "").trim(),
+      Round: String(r.Round || "").trim(),
+      Owner: (r.Owner || "").trim(),
+      Leg: (r.Leg || "").trim(),
+      Result: (r.Result || "").trim().toUpperCase(),
+      Notes: (r.Notes || "").trim(),
+    })).filter(r => r.WeekID && r.Owner && r.Leg);
+
+    if(!rows.length){
+      el.textContent = "No group multi legs logged yet.";
+      return;
+    }
+
+    const withDates = rows.map(r => ({...r, _d: normalizeDate(r.Date)}));
+    withDates.sort((a,b) => ((b._d?.getTime() ?? 0) - (a._d?.getTime() ?? 0)) || (b.WeekID.localeCompare(a.WeekID)));
+    const latestWeek = withDates[0].WeekID;
+
+    const weekRows = withDates.filter(r => r.WeekID === latestWeek);
+
+    const total = weekRows.length;
+    const w = weekRows.filter(r => r.Result === "W").length;
+    const l = weekRows.filter(r => r.Result === "L").length;
+    const v = weekRows.filter(r => r.Result === "V").length;
+    const p = weekRows.filter(r => r.Result === "P" || r.Result === "").length;
+
+    const round = weekRows[0]?.Round || "—";
+    const date = weekRows[0]?.Date || "—";
+
+    const sold = weekRows.filter(r => r.Result === "L").map(r => r.Owner);
+    const soldLine = sold.length
+      ? `<div><b>Sold it:</b> <span class="bad">${sold.map(escapeHtml).join(", ")}</span></div>`
+      : `<div><b>Sold it:</b> —</div>`;
+
+    const legsHtml = weekRows.map(r => {
+      const cls =
+        r.Result === "W" ? "good" :
+        r.Result === "L" ? "bad" :
+        r.Result === "P" ? "warn" : "";
+
+      const res = r.Result || "P";
+
+      return `<div>• <b>${escapeHtml(r.Owner)}</b>: ${escapeHtml(r.Leg)} — <span class="${cls}">${escapeHtml(res)}</span></div>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div><b>Latest:</b> ${escapeHtml(latestWeek)} · Date ${escapeHtml(date)} · Round ${escapeHtml(round)}</div>
+      <div><b>Status:</b> <span class="good">${w}W</span> / <span class="bad">${l}L</span> / <span class="small">${v}V</span> / <span class="warn">${p}P</span> (Total ${total})</div>
+      ${soldLine}
+      <div style="height:8px"></div>
+      <div><b>Legs:</b></div>
+      ${legsHtml}
+    `;
+  }
 
     // show top current hot and cold
     const hot = s.filter(x => x.curType==="W").sort((a,b)=>b.curLen-a.curLen)[0];
@@ -1196,12 +1261,14 @@
         fetchCSV(CSV.members),
         fetchCSV(CSV.contributions),
         fetchCSV(CSV.bets),
+        fetchCSV(CSV.grouplegs),
       ]);
 
       STATE.config = readConfig(cfgRows);
       STATE.members = activeMembers(memberRows);
       STATE.contributions = contribRows;
       STATE.bets = betRows;
+      STATE.groupLegs = groupLegRows;
 
       validateHeaders(betRows);
 
@@ -1221,6 +1288,7 @@
 
       renderHallOfFame();
       renderStreaks();
+      renderGroupMultiTracker();
 
       renderRoundView();
       renderRecent();
