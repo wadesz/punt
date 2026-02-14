@@ -982,91 +982,92 @@
   }
 
   function renderStreaks(){
-    const s = computeStreaks();
-    if(!s.length){
-      $("streakBody").innerHTML = "No members yet.";
-      return;
-    }
-  }
-  function renderGroupMultiTracker(){
-    const el = document.getElementById("groupMultiBody");
-    if(!el) return;
-
-    const rows = (STATE.groupLegs || []).map(r => ({
-      WeekID: (r.WeekID || "").trim(),
-      Date: (r.Date || "").trim(),
-      Round: String(r.Round || "").trim(),
-      Owner: (r.Owner || "").trim(),
-      Leg: (r.Leg || "").trim(),
-      Result: (r.Result || "").trim().toUpperCase(),
-      Notes: (r.Notes || "").trim(),
-    })).filter(r => r.WeekID && r.Owner && r.Leg);
-
-    if(!rows.length){
-      el.textContent = "No group multi legs logged yet.";
-      return;
-    }
-
-    const withDates = rows.map(r => ({...r, _d: normalizeDate(r.Date)}));
-    withDates.sort((a,b) => ((b._d?.getTime() ?? 0) - (a._d?.getTime() ?? 0)) || (b.WeekID.localeCompare(a.WeekID)));
-    const latestWeek = withDates[0].WeekID;
-
-    const weekRows = withDates.filter(r => r.WeekID === latestWeek);
-
-    const total = weekRows.length;
-    const w = weekRows.filter(r => r.Result === "W").length;
-    const l = weekRows.filter(r => r.Result === "L").length;
-    const v = weekRows.filter(r => r.Result === "V").length;
-    const p = weekRows.filter(r => r.Result === "P" || r.Result === "").length;
-
-    const round = weekRows[0]?.Round || "—";
-    const date = weekRows[0]?.Date || "—";
-
-    const sold = weekRows.filter(r => r.Result === "L").map(r => r.Owner);
-    const soldLine = sold.length
-      ? `<div><b>Sold it:</b> <span class="bad">${sold.map(escapeHtml).join(", ")}</span></div>`
-      : `<div><b>Sold it:</b> —</div>`;
-
-    const legsHtml = weekRows.map(r => {
-      const cls =
-        r.Result === "W" ? "good" :
-        r.Result === "L" ? "bad" :
-        r.Result === "P" ? "warn" : "";
-
-      const res = r.Result || "P";
-
-      return `<div>• <b>${escapeHtml(r.Owner)}</b>: ${escapeHtml(r.Leg)} — <span class="${cls}">${escapeHtml(res)}</span></div>`;
-    }).join("");
-
-    el.innerHTML = `
-      <div><b>Latest:</b> ${escapeHtml(latestWeek)} · Date ${escapeHtml(date)} · Round ${escapeHtml(round)}</div>
-      <div><b>Status:</b> <span class="good">${w}W</span> / <span class="bad">${l}L</span> / <span class="small">${v}V</span> / <span class="warn">${p}P</span> (Total ${total})</div>
-      ${soldLine}
-      <div style="height:8px"></div>
-      <div><b>Legs:</b></div>
-      ${legsHtml}
-    `;
+  const s = computeStreaks();
+  if(!s.length){
+    $("streakBody").innerHTML = "No members yet.";
+    return;
   }
 
-    // show top current hot and cold
-    const hot = s.filter(x => x.curType==="W").sort((a,b)=>b.curLen-a.curLen)[0];
-    const cold = s.filter(x => x.curType==="L").sort((a,b)=>b.curLen-a.curLen)[0];
+  // show top current hot and cold
+  const hot = s.filter(x => x.curType==="W").sort((a,b)=>b.curLen-a.curLen)[0];
+  const cold = s.filter(x => x.curType==="L").sort((a,b)=>b.curLen-a.curLen)[0];
 
-    const rows = s
-      .sort((a,b)=> (b.bestW - a.bestW) || (a.bestL - b.bestL))
-      .map(x => {
-        const cur = x.curType ? `${x.curType==="W" ? "🔥" : "🧊"} ${x.curType}×${x.curLen}` : "—";
-        return `<div><b>${escapeHtml(x.name)}:</b> current ${cur} · best 🔥 W×${x.bestW} · worst 🧊 L×${x.bestL}</div>`;
-      })
-      .join("");
+  const rows = s
+    .sort((a,b)=> (b.bestW - a.bestW) || (a.bestL - b.bestL))
+    .map(x => {
+      const cur = x.curType ? `${x.curType==="W" ? "🔥" : "🧊"} ${x.curType}×${x.curLen}` : "—";
+      return `<div><b>${escapeHtml(x.name)}:</b> current ${cur} · best 🔥 W×${x.bestW} · worst 🧊 L×${x.bestL}</div>`;
+    })
+    .join("");
 
-    $("streakBody").innerHTML = `
-      <div><b>Hottest right now:</b> ${hot ? `${escapeHtml(hot.name)} 🔥 W×${hot.curLen}` : "—"}</div>
-      <div><b>Coldest right now:</b> ${cold ? `${escapeHtml(cold.name)} 🧊 L×${cold.curLen}` : "—"}</div>
-      <div style="height:8px"></div>
-      ${rows}
-    `;
+  $("streakBody").innerHTML = `
+    <div><b>Hottest right now:</b> ${hot ? `${escapeHtml(hot.name)} 🔥 W×${hot.curLen}` : "—"}</div>
+    <div><b>Coldest right now:</b> ${cold ? `${escapeHtml(cold.name)} 🧊 L×${cold.curLen}` : "—"}</div>
+    <div style="height:8px"></div>
+    ${rows}
+  `;
+}
+
+function renderGroupMultiTracker(){
+  const el = document.getElementById("groupMultiBody");
+  if(!el) return;
+
+  const rows = (STATE.groupLegs || []).map(r => ({
+    WeekID: (r.WeekID || "").trim(),
+    Date: (r.Date || "").trim(),
+    Round: String(r.Round || "").trim(),
+    Owner: (r.Owner || "").trim(),
+    Leg: (r.Leg || "").trim(),
+    Result: (r.Result || "").trim().toUpperCase(),
+    Notes: (r.Notes || "").trim(),
+  })).filter(r => r.WeekID && r.Owner && r.Leg);
+
+  if(!rows.length){
+    el.textContent = "No group multi legs logged yet.";
+    return;
   }
+
+  // Pick "latest" WeekID by Date (fallback WeekID string)
+  const withDates = rows.map(r => ({...r, _d: normalizeDate(r.Date)}));
+  withDates.sort((a,b) => ((b._d?.getTime() ?? 0) - (a._d?.getTime() ?? 0)) || (b.WeekID.localeCompare(a.WeekID)));
+  const latestWeek = withDates[0].WeekID;
+
+  const weekRows = withDates.filter(r => r.WeekID === latestWeek);
+
+  const total = weekRows.length;
+  const w = weekRows.filter(r => r.Result === "W").length;
+  const l = weekRows.filter(r => r.Result === "L").length;
+  const v = weekRows.filter(r => r.Result === "V").length;
+  const p = weekRows.filter(r => r.Result === "P" || r.Result === "").length;
+
+  const round = weekRows[0]?.Round || "—";
+  const date = weekRows[0]?.Date || "—";
+
+  const sold = weekRows.filter(r => r.Result === "L").map(r => r.Owner);
+  const soldLine = sold.length
+    ? `<div><b>Sold it:</b> <span class="bad">${sold.map(escapeHtml).join(", ")}</span></div>`
+    : `<div><b>Sold it:</b> —</div>`;
+
+  const legsHtml = weekRows.map(r => {
+    const cls =
+      r.Result === "W" ? "good" :
+      r.Result === "L" ? "bad" :
+      r.Result === "P" ? "warn" : "";
+
+    const res = r.Result || "P";
+
+    return `<div>• <b>${escapeHtml(r.Owner)}</b>: ${escapeHtml(r.Leg)} — <span class="${cls}">${escapeHtml(res)}</span></div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div><b>Latest:</b> ${escapeHtml(latestWeek)} · Date ${escapeHtml(date)} · Round ${escapeHtml(round)}</div>
+    <div><b>Status:</b> <span class="good">${w}W</span> / <span class="bad">${l}L</span> / <span class="small">${v}V</span> / <span class="warn">${p}P</span> (Total ${total})</div>
+    ${soldLine}
+    <div style="height:8px"></div>
+    <div><b>Legs:</b></div>
+    ${legsHtml}
+  `;
+}
 
   function renderRoundCallouts(){
     const round = $("roundSelect").value;
