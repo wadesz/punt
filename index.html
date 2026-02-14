@@ -1256,7 +1256,7 @@
     setError("");
     document.body.classList.add("loading");
     try{
-      const [cfgRows, memberRows, contribRows, betRows] = await Promise.all([
+      const [cfgRows, memberRows, contribRows, betRows, groupLegRows] = await Promise.all([
         fetchCSV(CSV.config),
         fetchCSV(CSV.members),
         fetchCSV(CSV.contributions),
