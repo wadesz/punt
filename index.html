@@ -1049,10 +1049,10 @@ function renderGroupMultiTracker(){
     : `<div><b>Sold it:</b> —</div>`;
 
   const legsHtml = weekRows.map(r => {
-    const cls =
-      r.Result === "W" ? "good" :
-      r.Result === "L" ? "bad" :
-      r.Result === "P" ? "warn" : "";
+     let cls = "";
+      if (r.Result === "W") cls = "good";
+      if (r.Result === "L") cls = "bad";
+      if (r.Result === "P") cls = "warn";
 
     const res = r.Result || "P";
 
